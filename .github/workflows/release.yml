@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write # create the release and upload the zip
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+        with:
+          toolchain: stable
+      - run: cargo test --release --locked
+      - run: cargo build --release --locked
+      - name: Package
+        shell: pwsh
+        # LICENSE and THIRD_PARTY_NOTICES.md travel with the exe (AGPL and
+        # the windows-sys MIT notice).
+        run: |
+          New-Item -ItemType Directory EpsonReset | Out-Null
+          Copy-Item target/release/EpsonReset.exe, LICENSE, THIRD_PARTY_NOTICES.md, README.md EpsonReset
+          Compress-Archive -Path EpsonReset/* -DestinationPath EpsonReset.zip
+          $hash = (Get-FileHash EpsonReset.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  EpsonReset.zip" | Out-File -Encoding ascii EpsonReset.zip.sha256
+      - name: Publish
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$env:TAG" EpsonReset.zip EpsonReset.zip.sha256 --repo "$env:GITHUB_REPOSITORY" --title "$env:TAG" --notes "Download EpsonReset.zip, unpack it and start EpsonReset.exe. SHA-256 in EpsonReset.zip.sha256."
