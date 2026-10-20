@@ -30,7 +30,8 @@ jobs:
           Copy-Item target/release/EpsonReset.exe, LICENSE, THIRD_PARTY_NOTICES.md, README.md EpsonReset
           Compress-Archive -Path EpsonReset/* -DestinationPath EpsonReset.zip
           $hash = (Get-FileHash EpsonReset.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  EpsonReset.zip" | Out-File -Encoding ascii EpsonReset.zip.sha256
+          # LF line ending so `sha256sum -c` works everywhere.
+          [IO.File]::WriteAllText("$PWD/EpsonReset.zip.sha256", "$hash  EpsonReset.zip`n")
       - name: Publish
         shell: pwsh
         env:
